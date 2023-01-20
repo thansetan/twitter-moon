@@ -1,4 +1,4 @@
-<h1 style="text-align: center; font-weight: bold;">Update your Twitter screen name and/or profile picture to current moon phase</h1>
+<h1 style="text-align: center; font-weight: bold;">Update your Twitter profile picture and/or screen name to current moon phase</h1>
 
 ## Demo
 
