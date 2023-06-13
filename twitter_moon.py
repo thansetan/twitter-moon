@@ -46,37 +46,25 @@ class TwitterMoon:
         now = datetime.utcnow()
         jd = julian(now.year, now.month, now.day)
         p = (jd - julian(2000, 1, 6)) % 29.530588853
-        return (
-            "🌑"
-            if p < 1.84566
-            else (
-                "🌒" if self.hemisphere != "south" else "🌘"
-            )  # this is not the best way, but I don't think there's any other way
-            if p < 5.53699
-            else (
-                "🌓" if self.hemisphere != "south" else "🌗"
-            )  # this is not the best way, but I don't think there's any other way
-            if p < 9.22831
-            else (
-                "🌔" if self.hemisphere != "south" else "🌖"
-            )  # this is not the best way, but I don't think there's any other way
-            if p < 12.91963
-            else "🌕"
-            if p < 16.61096
-            else (
-                "🌖" if self.hemisphere != "south" else "🌔"
-            )  # this is not the best way, but I don't think there's any other way
-            if p < 20.30228
-            else (
-                "🌗" if self.hemisphere != "south" else "🌓"
-            )  # this is not the best way, but I don't think there's any other way
-            if p < 23.99361
-            else (
-                "🌘" if self.hemisphere != "south" else "🌒"
-            )  # this is not the best way, but I don't think there's any other way
-            if p < 27.68493
-            else "🌑"
+        
+        moon_phases = {
+        0: "🌑",
+        1.84566: "🌒",
+        5.53588: "🌓",
+        9.22831: "🌔",
+        12.91963: "🌕",
+        16.61069: "🌖",
+        20.30228: "🌗",
+        23.99361: "🌘",
+        27.68493: "🌑",
+        }
+        
+        closest_key = (
+            max(key for key in moon_phases.keys() if key <= (29.530588853 - p))
+            if self.hemisphere == "south"
+            else max(key for key in moon_phases.keys() if key <= p)
         )
+        return moon_phases[closest_key]
 
     def update_picture(self):
         image = self.__get_image()
