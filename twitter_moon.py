@@ -4,10 +4,10 @@ from datetime import datetime
 from threading import Lock
 from urllib import request
 
-import schedule
 import tweepy
-from dotenv import load_dotenv
 from tweepy import errors
+
+from api.models.response import APIResponse
 
 
 class TwitterMoon:
@@ -93,26 +93,47 @@ class TwitterMoon:
         )
         return moon_phases[closest_key]
 
-    def update_picture(self, access_token: str, access_token_secret: str) -> None:
-        with self.lock:
-            image = self.__get_image()
-
-        auth = self.auth
-        auth.set_access_token(access_token, access_token_secret)
-        api = tweepy.API(auth)
-        api.update_profile_image(image)
+    def update_picture(
+        self, access_token: str, access_token_secret: str
+    ) -> tuple[APIResponse, int]:
+        try:
+            with self.lock:
+                image = self.__get_image()
+        except Exception as e:
+            return APIResponse("there's an error", [str(e)]), 500
+        try:
+            auth = self.auth
+            auth.set_access_token(access_token, access_token_secret)
+            api = tweepy.API(auth)
+            api.update_profile_image(image)
+        except errors.HTTPException as e:
+            return (
+                APIResponse("there's an error", e.response.json()["errors"]),
+                e.response.status_code,
+            )
+        return APIResponse("profile picture updated", success=True), 200
 
     def update_screen_name(
         self, access_token: str, access_token_secret: str, current_screen_name: str
-    ) -> None:
+    ) -> tuple[APIResponse, int]:
         new_name = current_screen_name + " " + self.__get_moon_emoji()
-        auth = self.auth
-        auth.set_access_token(access_token, access_token_secret)
-        api = tweepy.API(auth)
-        api.update_profile(name=new_name)
+        try:
+            auth = self.auth
+            auth.set_access_token(access_token, access_token_secret)
+            api = tweepy.API(auth)
+            api.update_profile(name=new_name)
+        except errors.HTTPException as e:
+            return (
+                APIResponse("there's an error", e.response.json()["errors"]),
+                e.response.status_code,
+            )
+        return APIResponse("screen name updated", success=True), 200
 
 
 if __name__ == "__main__":
+    import schedule
+    from dotenv import load_dotenv
+
     load_dotenv()
     tm = TwitterMoon(
         hemisphere="south",
@@ -128,7 +149,7 @@ if __name__ == "__main__":
     #     access_token=os.getenv("ACCESS_TOKEN"),
     #     access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"),
     # )
-    schedule.every().hour.at(":50").do(
+    schedule.every().hour.at(":30").do(
         tm.update_picture,
         access_token=os.getenv("ACCESS_TOKEN"),
         access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"),
