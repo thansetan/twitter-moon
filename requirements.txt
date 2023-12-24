@@ -4,3 +4,4 @@ tweepy==4.10.0
 uvicorn==0.25.0
 fastapi==0.105.0
 filelock==3.13.1
+Pillow==10.1.0

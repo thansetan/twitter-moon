@@ -13,7 +13,9 @@ twitter_moon = TwitterMoon(
     hemisphere=os.getenv("HEMISPHERE"),
     consumer_key=os.getenv("CONSUMER_KEY"),
     consumer_secret=os.getenv("CONSUMER_SECRET"),
-    save_dir="tmp",
+    save_dir=os.getenv("SAVE_DIR"),
+    with_img_in_center=bool(os.getenv("WITH_IMAGE_IN_CENTER")),
+    img_in_center_path=os.getenv("CENTER_IMAGE_PATH"),
 )
 
 
