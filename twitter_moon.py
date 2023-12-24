@@ -1,18 +1,16 @@
 import os
 import time
 from datetime import datetime
-from threading import Lock
 from urllib import request
 
 import tweepy
+from filelock import FileLock
 from tweepy import errors
 
 from api.models.response import APIResponse
 
 
 class TwitterMoon:
-    lock = Lock()
-
     def __init__(
         self,
         hemisphere: str,
@@ -23,6 +21,7 @@ class TwitterMoon:
         self.hemisphere = hemisphere  # use "north" if you're on the northern hemisphere, "south" if you're on the southern hemisphere
         self.save_dir = save_dir
         self.auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+        self.lock = FileLock(f"{self.save_dir}/moon.lock")
 
     def __get_picture_id(self) -> str:
         # basically, the id represents the number of hours that have passed since January 1st.
