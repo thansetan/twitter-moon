@@ -145,7 +145,7 @@ class TwitterMoon:
             api.update_profile_image(image)
         except errors.HTTPException as e:
             return (
-                APIResponse("there's an error", e.response.json()["errors"]),
+                APIResponse("there's an error", e.api_errors),
                 e.response.status_code,
             )
         return APIResponse("profile picture updated", success=True), 200
@@ -161,7 +161,7 @@ class TwitterMoon:
             api.update_profile(name=new_name)
         except errors.HTTPException as e:
             return (
-                APIResponse("there's an error", e.response.json()["errors"]),
+                APIResponse("there's an error", e.api_errors),
                 e.response.status_code,
             )
         return APIResponse("screen name updated", success=True), 200
