@@ -1,8 +1,8 @@
 import os
 import time
 from datetime import datetime
-from urllib import request
 
+import requests
 import tweepy
 from filelock import FileLock
 from PIL import Image
@@ -20,6 +20,7 @@ class TwitterMoon:
         save_dir: str,
         with_img_in_center: bool = False,
         img_in_center_path: str | None = None,
+        download_timeout: float | None = None,
     ):
         self.hemisphere = hemisphere  # use "north" if you're on the northern hemisphere, "south" if you're on the southern hemisphere
         self.save_dir = save_dir
@@ -27,6 +28,7 @@ class TwitterMoon:
         self.with_img_in_center = with_img_in_center
         self.img_in_center_path = img_in_center_path
         self.lock = FileLock(f"{self.save_dir}/moon.lock")
+        self.download_timeout = download_timeout
 
     def __get_picture_id(self) -> str:
         # basically, the id represents the number of hours that have passed since January 1st.
@@ -60,7 +62,14 @@ class TwitterMoon:
             # remove moon pictures that are not the current one
             if file.startswith("moon_") and file[5:9] != picture_id:
                 os.remove(f"{self.save_dir}/{file}")
-        request.urlretrieve(url, img_dir)
+        try:
+            req = requests.get(url, timeout=self.download_timeout, stream=True)
+            with open(img_dir, "wb") as f:
+                for chunk in req.iter_content(chunk_size=100 * 1024):
+                    if chunk:
+                        f.write(chunk)
+        except Exception as e:
+            raise e
         return (
             self.__add_image_in_center(
                 img_dir,
@@ -137,7 +146,16 @@ class TwitterMoon:
             with self.lock:
                 image = self.__get_image()
         except Exception as e:
-            return APIResponse("there's an error", [str(e)]), 500
+            if isinstance(e, requests.exceptions.Timeout):
+                return (
+                    APIResponse(
+                        "timout while trying to download the image",
+                        [f"request to {e.request.url} timed out."],
+                    ),
+                    408,
+                )
+            else:
+                return APIResponse("there's an error", [str(e)]), 500
         try:
             auth = self.auth
             auth.set_access_token(access_token, access_token_secret)

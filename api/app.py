@@ -5,6 +5,7 @@ from fastapi import FastAPI, Response
 
 from api.models.response import APIResponse
 from api.models.user import User
+from helper import float_or_none
 from twitter_moon import TwitterMoon
 
 load_dotenv()
@@ -16,6 +17,7 @@ twitter_moon = TwitterMoon(
     save_dir=os.getenv("SAVE_DIR"),
     with_img_in_center=os.getenv("WITH_IMAGE_IN_CENTER").lower() in ("true", "t", "1"),
     img_in_center_path=os.getenv("CENTER_IMAGE_PATH"),
+    download_timeout=float_or_none(os.getenv("DOWNLOAD_TIMEOUT_SECONDS")),
 )
 
 
