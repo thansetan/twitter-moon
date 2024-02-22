@@ -1,4 +1,4 @@
-def float_or_none(value: str | None):
+def float_or_none(value: str | None) -> float | None:
     if not value:
         return None
     try:
