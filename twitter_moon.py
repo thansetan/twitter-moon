@@ -9,6 +9,7 @@ from PIL import Image
 from tweepy import errors
 
 from api.models.response import APIResponse
+from exceptions import TimeoutError
 
 
 class TwitterMoon:
@@ -63,11 +64,14 @@ class TwitterMoon:
             if file.startswith("moon_") and file[5:9] != picture_id:
                 os.remove(f"{self.save_dir}/{file}")
         try:
+            t0 = time.time()
             req = requests.get(url, timeout=self.download_timeout, stream=True)
             with open(img_dir, "wb") as f:
                 for chunk in req.iter_content(chunk_size=100 * 1024):
                     if chunk:
                         f.write(chunk)
+        except requests.exceptions.Timeout as timeout:
+            raise TimeoutError(time.time() - t0) from timeout
         except Exception as e:
             raise e
         return (
@@ -145,16 +149,15 @@ class TwitterMoon:
         try:
             with self.lock:
                 image = self.__get_image()
-        except Exception as e:
-            if isinstance(e, requests.exceptions.Timeout):
+        except TimeoutError as timeout:
                 return (
                     APIResponse(
-                        "timout while trying to download the image",
-                        [f"request to {e.request.url} timed out."],
+                        f"timed out while trying to download the image ({timeout.duration:.2f} s)",
+                        [f"request to {timeout.__cause__.request.url} timed out after {timeout.duration:.2f} s"],
                     ),
                     408,
                 )
-            else:
+        except Exception as e:
                 return APIResponse("there's an error", [str(e)]), 500
         try:
             auth = self.auth
