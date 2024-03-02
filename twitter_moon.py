@@ -1,14 +1,12 @@
 import os
 import time
 from datetime import datetime
+from threading import Lock
 
 import requests
 import tweepy
-from filelock import FileLock
 from PIL import Image
-from tweepy import errors
 
-from api.models.response import APIResponse
 from exceptions import TimeoutError
 
 
@@ -28,7 +26,7 @@ class TwitterMoon:
         self.auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
         self.with_img_in_center = with_img_in_center
         self.img_in_center_path = img_in_center_path
-        self.lock = FileLock(f"{self.save_dir}/moon.lock")
+        self.lock = Lock()
         self.download_timeout = download_timeout
 
     def __get_picture_id(self) -> str:
@@ -45,23 +43,23 @@ class TwitterMoon:
         ).zfill(4)
         return id
 
-    def __get_image(self) -> str:
-        picture_id = self.__get_picture_id()
-        img_dir = f"{self.save_dir}/moon_{picture_id}.jpg"
+    async def get_image(self) -> tuple[str, int]:
+        moon_id = self.__get_picture_id()
+        img_dir = f"{self.save_dir}/moon_{moon_id}.jpg"
         os.makedirs(f"{self.save_dir}", exist_ok=True)
         # if the picture already exists, return immediately
         if os.path.isfile(img_dir):
-            return img_dir
+            return img_dir, moon_id
         url = (
             "https://svs.gsfc.nasa.gov/vis/a000000/a005100/a00518"
             + ("8" if self.hemisphere == "south" else "7")
             + "/frames/730x730_1x1_30p/moon."
-            + self.__get_picture_id()
+            + moon_id
             + ".jpg"
         )
         for file in os.listdir(f"{self.save_dir}"):
             # remove moon pictures that are not the current one
-            if file.startswith("moon_") and file[5:9] != picture_id:
+            if file.startswith("moon_") and file[5:9] != moon_id:
                 os.remove(f"{self.save_dir}/{file}")
         try:
             t0 = time.time()
@@ -72,8 +70,8 @@ class TwitterMoon:
                         f.write(chunk)
         except requests.exceptions.Timeout as timeout:
             raise TimeoutError(time.time() - t0) from timeout
-        except Exception as e:
-            raise e
+        except Exception:
+            raise
         return (
             self.__add_image_in_center(
                 img_dir,
@@ -82,7 +80,7 @@ class TwitterMoon:
             )
             if self.with_img_in_center
             else img_dir
-        )
+        ), moon_id
 
     def __get_moon_emoji(self) -> str:
         def julian(year, month, day):
@@ -143,53 +141,37 @@ class TwitterMoon:
         )
         return orig_img_path
 
-    def update_picture(
+    async def update_picture(
         self, access_token: str, access_token_secret: str
-    ) -> tuple[APIResponse, int]:
-        try:
-            with self.lock:
-                image = self.__get_image()
-        except TimeoutError as timeout:
-                return (
-                    APIResponse(
-                        f"timed out while trying to download the image ({timeout.duration:.2f} s)",
-                        [f"request to {timeout.__cause__.request.url} timed out after {timeout.duration:.2f} s"],
-                    ),
-                    408,
-                )
-        except Exception as e:
-                return APIResponse("there's an error", [str(e)]), 500
+    ) -> tuple[str, int]:
+        with self.lock:
+            image_path, moon_id = await self.get_image()
         try:
             auth = self.auth
             auth.set_access_token(access_token, access_token_secret)
             api = tweepy.API(auth)
-            api.update_profile_image(image)
-        except errors.HTTPException as e:
-            return (
-                APIResponse("there's an error", e.api_errors),
-                e.response.status_code,
-            )
-        return APIResponse("profile picture updated", success=True), 200
+            api.update_profile_image(image_path)
+        except Exception as e:
+            raise
+        return "profile picture updated", moon_id
 
     def update_screen_name(
         self, access_token: str, access_token_secret: str, current_screen_name: str
-    ) -> tuple[APIResponse, int]:
+    ) -> str:
         new_name = current_screen_name + " " + self.__get_moon_emoji()
         try:
             auth = self.auth
             auth.set_access_token(access_token, access_token_secret)
             api = tweepy.API(auth)
             api.update_profile(name=new_name)
-        except errors.HTTPException as e:
-            return (
-                APIResponse("there's an error", e.api_errors),
-                e.response.status_code,
-            )
-        return APIResponse("screen name updated", success=True), 200
-
-
+        except Exception:
+            raise
+        return"screen name updated"
+    
 if __name__ == "__main__":
-    import schedule
+    import asyncio
+
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -200,18 +182,30 @@ if __name__ == "__main__":
         save_dir="tmp",
     )
     print("Starting...")
-    # you can use the schedule library, Github Actions, or create a HTTP API and use a tool like cron-job.org to run this script automatically every hour.
-    # schedule.every().day.at("00:30").do(
-    #     tm.update_screen_name,
-    #     current_screen_name="aku",
-    #     access_token=os.getenv("ACCESS_TOKEN"),
-    #     access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"),
+    scheduler = AsyncIOScheduler()
+    # scheduler.add_job(
+    #     func=tm.update_screen_name,
+    #     args=[
+    #         os.getenv("ACCESS_TOKEN"),
+    #         os.getenv("ACCESS_TOKEN_SECRET"),
+    #         "aku",
+    #     ],
+    #     trigger="cron",
+    #     minute="31",
+    #     hour="*",
     # )
-    schedule.every().hour.at(":30").do(
-        tm.update_picture,
-        access_token=os.getenv("ACCESS_TOKEN"),
-        access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"),
+    scheduler.add_job(
+        func=tm.update_picture,
+        args=[os.getenv("ACCESS_TOKEN"), os.getenv("ACCESS_TOKEN_SECRET")],
+        trigger="cron",
+        minute="30",
+        hour="*"
     )
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+    scheduler.start()
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_forever()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        scheduler.shutdown()
