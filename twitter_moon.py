@@ -1,6 +1,6 @@
 import os
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from threading import Lock
 
 import requests
@@ -31,7 +31,7 @@ class TwitterMoon:
 
     def __get_picture_id(self) -> str:
         # basically, the id represents the number of hours that have passed since January 1st.
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         id = str(
             round(
                 (
@@ -43,7 +43,9 @@ class TwitterMoon:
         ).zfill(4)
         return id
 
-    async def get_image(self) -> tuple[str, int]:
+    async def get_image(
+        self,
+    ) -> tuple[str, int]:
         moon_id = self.__get_picture_id()
         img_dir = f"{self.save_dir}/moon_{moon_id}.jpg"
         os.makedirs(f"{self.save_dir}", exist_ok=True)
@@ -63,7 +65,13 @@ class TwitterMoon:
                 os.remove(f"{self.save_dir}/{file}")
         try:
             t0 = time.time()
-            req = requests.get(url, timeout=self.download_timeout, stream=True)
+            try:
+                req = requests.get(url, timeout=self.download_timeout, stream=True)
+            except requests.exceptions.SSLError:
+                print("SSL error, retrying without verification")
+                req = requests.get(
+                    url, timeout=self.download_timeout, stream=True, verify=False
+                )
             with open(img_dir, "wb") as f:
                 for chunk in req.iter_content(chunk_size=100 * 1024):
                     if chunk:
@@ -166,8 +174,9 @@ class TwitterMoon:
             api.update_profile(name=new_name)
         except Exception:
             raise
-        return"screen name updated"
-    
+        return "screen name updated"
+
+
 if __name__ == "__main__":
     import asyncio
 
@@ -199,7 +208,7 @@ if __name__ == "__main__":
         args=[os.getenv("ACCESS_TOKEN"), os.getenv("ACCESS_TOKEN_SECRET")],
         trigger="cron",
         minute="30",
-        hour="*"
+        hour="*",
     )
     scheduler.start()
     loop = asyncio.get_event_loop()
