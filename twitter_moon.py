@@ -53,8 +53,8 @@ class TwitterMoon:
         if os.path.isfile(img_dir):
             return img_dir, moon_id
         url = (
-            "https://svs.gsfc.nasa.gov/vis/a000000/a005100/a00518"
-            + ("8" if self.hemisphere == "south" else "7")
+            "https://svs.gsfc.nasa.gov/vis/a000000/a005400/a00541"
+            + ("5" if self.hemisphere == "south" else "6")
             + "/frames/730x730_1x1_30p/moon."
             + moon_id
             + ".jpg"
