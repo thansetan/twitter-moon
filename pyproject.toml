@@ -1,0 +1,15 @@
+[project]
+name = "twitter-moon"
+version = "0.1.0"
+description = "update twitter profile picture to follow current moon phase"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "apscheduler==3.10.4",
+    "certifi==2024.2.2",
+    "fastapi==0.110.0",
+    "pillow==10.2.0",
+    "python-dotenv==1.0.1",
+    "tweepy==4.14.0",
+    "uvicorn==0.27.1",
+]

@@ -19,7 +19,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
-app = FastAPI(docs_url=None, redoc_url=None)
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 twitter_moon = TwitterMoon(
     hemisphere=os.getenv("HEMISPHERE"),
@@ -44,6 +44,9 @@ async def picture(user: User, response: Response):
             user.access_token, user.access_token_secret
         )
     except TimeoutError as timeout:
+        logging.exception(
+            "timed out while trying to update the profile picture", exc_info=timeout
+        )
         response.status_code = 408
         return APIResponse(
             f"timed out while trying to download the image ({timeout.duration:.2f} s)",
