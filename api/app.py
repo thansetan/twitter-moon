@@ -1,6 +1,8 @@
 import logging
 import os
-from time import gmtime, strftime, time
+import sys
+from logging import handlers
+from time import time
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Response
@@ -14,11 +16,26 @@ from twitter_moon import TwitterMoon
 
 load_dotenv()
 
+LOG_PATH: str | None = os.getenv("LOG_PATH")
+
+if LOG_PATH:
+    os.makedirs(LOG_PATH, exist_ok=True)
+    rotating_file_handler = handlers.RotatingFileHandler(
+        os.path.join(LOG_PATH, "app.log"),
+        maxBytes=10 * 1024 * 1024,
+        backupCount=5,
+    )
+console_handler = logging.StreamHandler(sys.stdout)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=(
+        [console_handler] if not LOG_PATH else [rotating_file_handler, console_handler]
+    ),
 )
+
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 twitter_moon = TwitterMoon(
@@ -89,7 +106,8 @@ async def download(secret: Secret, response: Response):
     try:
         t0 = time()
         logging.info("Download starting...")
-        await twitter_moon.get_image()
+        [img_dir, moon_id] = await twitter_moon.get_image()
+        logging.info("Image saved to %s", img_dir)
         t1 = time()
         logging.info(
             "Download finished [took %.2f s]!",
