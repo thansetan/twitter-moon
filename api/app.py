@@ -39,6 +39,7 @@ logging.basicConfig(
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 twitter_moon = TwitterMoon(
+    moon_image_url=os.getenv("MOON_IMAGE_URL"),
     hemisphere=os.getenv("HEMISPHERE"),
     consumer_key=os.getenv("CONSUMER_KEY"),
     consumer_secret=os.getenv("CONSUMER_SECRET"),

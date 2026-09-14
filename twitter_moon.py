@@ -13,6 +13,7 @@ from exceptions import TimeoutError
 class TwitterMoon:
     def __init__(
         self,
+        moon_image_url: str,
         hemisphere: str,
         consumer_key: str,
         consumer_secret: str,
@@ -21,6 +22,7 @@ class TwitterMoon:
         img_in_center_path: str | None = None,
         download_timeout: float | None = None,
     ):
+        self.moon_image_url = moon_image_url
         self.hemisphere = hemisphere  # use "north" if you're on the northern hemisphere, "south" if you're on the southern hemisphere
         self.save_dir = save_dir
         self.auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
@@ -52,13 +54,7 @@ class TwitterMoon:
         # if the picture already exists, return immediately
         if os.path.isfile(img_dir):
             return img_dir, moon_id
-        url = (
-            "https://svs.gsfc.nasa.gov/vis/a000000/a005500/a00558"
-            + ("8" if self.hemisphere == "south" else "7")
-            + "/frames/730x730_1x1_30p/moon."
-            + moon_id
-            + ".jpg"
-        )
+        url = self.moon_image_url + "/" + moon_id + "?hemisphere=" + self.hemisphere
         for file in os.listdir(f"{self.save_dir}"):
             # remove moon pictures that are not the current one
             if file.startswith("moon_") and file[5:9] != moon_id:
@@ -185,6 +181,7 @@ if __name__ == "__main__":
 
     load_dotenv()
     tm = TwitterMoon(
+        moon_image_url=os.getenv("MOON_IMAGE_URL"),
         hemisphere="south",
         consumer_key=os.getenv("CONSUMER_KEY"),
         consumer_secret=os.getenv("CONSUMER_SECRET"),
