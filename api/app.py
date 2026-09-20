@@ -50,6 +50,21 @@ twitter_moon = TwitterMoon(
 )
 
 
+@app.middleware("http")
+async def pause_middleware(request, call_next):
+    if os.getenv("IS_PAUSED") is not None and os.getenv("IS_PAUSED").lower() in (
+        "true",
+        "t",
+        "1",
+    ):
+        logging.info("API is paused, returning 503")
+        return Response(
+            content="API is paused",
+            status_code=503,
+        )
+    return await call_next(request)
+
+
 @app.get("/ping")
 def ping():
     return APIResponse("pong", success=True)
